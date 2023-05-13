@@ -6,11 +6,12 @@ class SQL():
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
         cur.execute("""CREATE TABLE IF NOT EXISTS products(
+        id INT PRIMARY KEY,
         title TEXT,
         description TEXT,
         link TEXT,
         price INT,
-        section TEXT,
+        section INT,
         image TEXT);
         """)
         conn.commit()
@@ -22,12 +23,12 @@ class SQL():
         conn.commit()
         cur.execute("""CREATE TABLE IF NOT EXISTS sections(
         title TEXT,
-        id INT);
+        id INT PRIMARY KEY);
         """
         )
-        # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?);", ('Таблетка', 'Супер', 'https://yandex.ru', 199, 'Продукты', 'images/tabletka.jpg'))
+        # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", (1, 'Таблетка', 'Супер', 'https://yandex.ru', 199, 1, 'images/tabletka.jpg'))
         # conn.commit()
-        # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?);", ('Бот', 'Супер', 'https://google.com', 500, 'Продукты', 'images/Бот.jpg'))
+        # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", (2, 'Бот', 'Супер', 'https://google.com', 500, 1, 'images/Бот.jpg'))
         # conn.commit()
         # cur.execute("INSERT INTO sections VALUES(?, ?);", ('Продукты', 1))
         # conn.commit()
@@ -47,29 +48,35 @@ class SQL():
     def get_products_section(self, name):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute(f"SELECT * FROM products where section='{name}';")
+        cur.execute(f"SELECT * FROM products where section={name};")
         all_results = cur.fetchall()
         conn.close()
         return all_results
     
-    def get_info_about_product(self, text):
+    def get_info_about_product(self, id):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute(f"select * from products where title='{text}'")
+        cur.execute(f"select * from products where id='{id}'")
         product = cur.fetchone()
         return product
 
     def add_product(self, product):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?);", product)
+        cur.execute("SELECT * FROM products")
+        id = len(cur.fetchall()) + 1
+        cur = conn.cursor()
+        otv = [id]
+        for i in product:
+            otv.append(i)
+        cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", otv)
         conn.commit()
         conn.close()
 
-    def delete_product(self, title):
+    def delete_product(self, id):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute(f"DELETE from products where title = '{title}'")
+        cur.execute(f"DELETE from products where id = '{id}'")
         conn.commit()
         conn.close()
 
@@ -84,14 +91,23 @@ class SQL():
     def create_section(self, name):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute("INSERT INTO sections VALUES(?, ?);", (name, 1))
+        cur.execute("SELECT * FROM sections")
+        id = len(cur.fetchall()) + 1
+        cur = conn.cursor()
+        cur.execute("INSERT INTO sections VALUES(?, ?);", (name, id))
         conn.commit()
         conn.close()
 
-    def delete_section(self, name):
+    def get_section(self, id):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute(f"DELETE from sections where title = '{name}'")
+        cur.execute(f"SELECT * FROM sections where id = {id}")
+        return cur.fetchone()
+
+    def delete_section(self, id):
+        conn = sqlite3.connect('data.db')
+        cur = conn.cursor()
+        cur.execute(f"DELETE from sections where id = '{id}'")
         conn.commit()
         conn.close()
 
