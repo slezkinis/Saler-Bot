@@ -10,7 +10,8 @@ class SQL():
         title TEXT,
         description TEXT,
         link TEXT,
-        price INT,
+        old_price INT,
+        new_price INT,
         section INT,
         image TEXT);
         """)
@@ -18,7 +19,9 @@ class SQL():
         cur.execute("""CREATE TABLE IF NOT EXISTS users(
         tgid INT,
         username TEXT,
-        buyproducts TEXT);  
+        buyproducts TEXT,
+        money INT,
+        ref INT);
         """)
         conn.commit()
         cur.execute("""CREATE TABLE IF NOT EXISTS sections(
@@ -43,6 +46,7 @@ class SQL():
         cur.execute("SELECT * FROM products;")
         all_results = cur.fetchall()
         conn.close()
+        # print(all_results)
         return all_results
 
     def get_products_section(self, name):
@@ -69,7 +73,7 @@ class SQL():
         otv = [id]
         for i in product:
             otv.append(i)
-        cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", otv)
+        cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?, ?);", otv)
         conn.commit()
         conn.close()
 
@@ -130,7 +134,7 @@ class SQL():
     def add_user(self, info):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
-        cur.execute("INSERT INTO users VALUES(?, ?, ?);", info)
+        cur.execute("INSERT INTO users VALUES(?, ?, ?, ?, ?);", info)
         conn.commit()
         conn.close()
 
