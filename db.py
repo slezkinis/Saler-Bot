@@ -29,6 +29,14 @@ class SQL():
         id INT PRIMARY KEY);
         """
         )
+        conn.commit()
+        cur.execute("""CREATE TABLE IF NOT EXISTS promocodes(
+        id INT PRIMARY KEY,
+        title TEXT,
+        new_price INT);
+        """
+        )
+        conn.commit()
         # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", (1, 'Таблетка', 'Супер', 'https://yandex.ru', 199, 1, 'images/tabletka.jpg'))
         # conn.commit()
         # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", (2, 'Бот', 'Супер', 'https://google.com', 500, 1, 'images/Бот.jpg'))
@@ -138,7 +146,7 @@ class SQL():
         conn.commit()
         conn.close()
 
-    def update_user(self, products, tg_id):
+    def update_user_buy(self, products, tg_id):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
         cur.execute(
@@ -147,3 +155,51 @@ class SQL():
         )
         conn.commit()
         conn.close()
+
+    def update_user_money(self, tg_id, money):
+        conn = sqlite3.connect('data.db')
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE users SET money = ? WHERE tgid = ?",
+            (money, tg_id)
+        )
+        conn.commit()
+        conn.close()
+    
+    def get_promocode(self, title):
+        conn = sqlite3.connect('data.db')
+        cur = conn.cursor()
+        cur.execute(f"SELECT * FROM promocodes where title='{title}';")
+        promocode = cur.fetchone()
+        conn.close()
+        return promocode
+
+    def create_promocode(self, title, price):
+        conn = sqlite3.connect('data.db')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM promocodes")
+        id = len(cur.fetchall()) + 1
+        cur = conn.cursor()
+        cur.execute("INSERT INTO promocodes VALUES(?, ?, ?);", (id, title, price))
+        conn.commit()
+        conn.close()
+
+    def get_all_promocodes(self):
+        conn = sqlite3.connect('data.db')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM promocodes;")
+        promocodes = cur.fetchall()
+        conn.close()
+        return promocodes
+
+    def delete_promo(self, id):
+        conn = sqlite3.connect('data.db')
+        cur = conn.cursor()
+        cur.execute(f'SELECT * FROM promocodes WHERE id = {id};')
+        promocode = cur.fetchone()[1]
+        cur = conn.cursor()
+        cur.execute(f"DELETE from promocodes where id = '{id}';")
+        conn.commit()
+        conn.close()
+        return promocode
+    

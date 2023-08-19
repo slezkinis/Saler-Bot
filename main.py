@@ -15,6 +15,8 @@ admin = False
 section = ''
 add_new = ''
 product = []
+promo = []
+promocodes_users = []
 
 
 @bot.callback_query_handler(func=lambda c: 'set-adm_' in c.data)
@@ -42,6 +44,80 @@ def admin_func(message):
     global admin
     admin = True
     markup = types.InlineKeyboardMarkup()
+    promo = types.InlineKeyboardButton('Промокоды', callback_data='promo')
+    cat = types.InlineKeyboardButton('Товары', callback_data='sections')
+    markup.add(promo)
+    markup.row()
+    markup.add(cat)
+    markup.row()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    bot.send_message(message.chat.id, 'Это настройка магазина!', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'promo')
+def set_promo(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    markup = types.InlineKeyboardMarkup()
+    promocodes = db.get_all_promocodes()
+    new = types.InlineKeyboardButton('✏️ Добавить новый промокод', callback_data='new_promo')
+    markup.add(new)
+    for i in promocodes:
+        markup.add(types.InlineKeyboardButton(f'{i[1]}, {i[2]}', callback_data=f'del_promo_{i[0]}'))
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    bot.send_message(message.message.chat.id, 'Вот все промокоды. Нажмите на промокод, чтобы удалить:', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: 'del_promo_' in c.data)
+def del_promo(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    id_promo = int(message.data.replace('del_promo_', ''))
+    promo_title = db.delete_promo(id_promo)
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    bot.send_message(message.message.chat.id, f'Промокод {promo_title} удалён!', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'new_promo')
+def create_promo(message):
+    global promo, add_new
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_product'))
+    promo = []
+    add_new = 'title'
+    bot.send_message(message.message.chat.id, 'Введите промокод:', reply_markup=markup)
+    
+
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'title' in add_new)
+def new_price(message):
+    global promo, add_new
+    promo.append(message.text)
+    add_new = 'price'
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_product'))
+    bot.send_message(message.chat.id, 'Введите цену', reply_markup=markup)
+
+
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'price' in add_new)
+def yes_create_promo(message):
+    global promo, add_new
+    promo.append(int(message.text))
+    add_new = ''
+    db.create_promocode(promo[0], promo[1])
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='cancel_product'))
+    bot.send_message(message.chat.id, f'Создан промокод {promo[0]}', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'sections')
+def set_cat(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    global admin
+    admin = True
+    markup = types.InlineKeyboardMarkup()
     sections = db.get_all_sections()
     new = types.InlineKeyboardButton('✏️ Добавить новую категорию', callback_data='new_section')
     markup.add(new)
@@ -50,7 +126,7 @@ def admin_func(message):
         markup.add(b1)
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
-    bot.send_message(message.chat.id, 'Это настройка магазина! Вот все категории', reply_markup=markup)
+    bot.send_message(message.message.chat.id, 'Вот все категории:', reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda c: c.data == 'new_section')
@@ -93,7 +169,7 @@ def delete(message):
         buy = user[2].split('; ')
         if f'{message.data.replace("yes_product_", "")}' in buy:
             buy.remove(f'{message.data.replace("yes_product_", "")}')
-        db.update_user('; '.join(buy), user[0])
+        db.update_user_buy('; '.join(buy), user[0])
     bot.send_message(message.message.chat.id, f'Товар "{product[1]}" удалён!', reply_markup=markup)
 
 
@@ -123,22 +199,23 @@ def delete_category(message):
 
 @bot.callback_query_handler(func=lambda c: 'cancel_product' in c.data)
 def cancel_product(message):
-    global add_new, product
+    global add_new, product, promo
     add_new = ''
     product = []
+    promo = []
     bot.delete_message(message.message.chat.id, message.message.message_id)
     global admin
     admin = True
     markup = types.InlineKeyboardMarkup()
-    sections = db.get_all_sections()
-    new = types.InlineKeyboardButton('✏️ Добавить новую категорию', callback_data='new_section')
-    markup.add(new)
-    for section in sections:
-        b1 = types.InlineKeyboardButton(section[0], callback_data=f'set-adm_{section[1]}')
-        markup.add(b1)
+    promo = types.InlineKeyboardButton('Промокоды', callback_data='promo')
+    cat = types.InlineKeyboardButton('Товары', callback_data='sections')
+    markup.add(promo)
+    markup.row()
+    markup.add(cat)
+    markup.row()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
-    bot.send_message(message.message.chat.id, 'Это настройка магазина! Вот все категории', reply_markup=markup)
+    bot.send_message(message.message.chat.id, 'Это настройка магазина!', reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda c: 'add_product_in_' in c.data)
@@ -266,7 +343,7 @@ def delete_category(message):
             buy = user[2].split('; ')
             if product[0] in buy:
                 buy.remove(product[0])
-            db.update_user('; '.join(buy), user[0])
+            db.update_user_buy('; '.join(buy), user[0])
         db.delete_product(product[0])
         count += 1
     bot.send_message(message.message.chat.id, f'Удалена категория "{name[0]} и {count} шт товаров!', reply_markup=markup)
@@ -304,47 +381,132 @@ def start(message):
             close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
             markup.add(close)
             ref_chat_id = message.text.split(' ')[1]
-            user = db.get_user(ref_chat_id)
-            bot.send_message(message.chat.id, f'Хэй! Тебя пригласил {user[1]}! Поздравляю, в честь этого тебе начисленно 10 бонусных рублей 💸. Ты можешь их потратить на плкупку товаров в этом магазине!', reply_markup=markup)
-            db.add_user((message.chat.id, message.chat.username, '', 10, ref_chat_id))
+            db.add_user((message.chat.id, message.chat.username, '', 0, ref_chat_id))
         else:
             db.add_user((message.chat.id, message.chat.username, '', 0, -1))
+        
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     shop = types.KeyboardButton('🛒 Товары')
-    not_pay = types.KeyboardButton('❗️Акция❗️')
+    not_pay = types.KeyboardButton('❗️Получить доступ ко всему❗️')
+    help = types.KeyboardButton('Помощь')
+    info = types.KeyboardButton('Информация')
     profile = types.KeyboardButton('📱 Профиль')
     ref = types.KeyboardButton('💸 Реферальная система')
-    markup.add(shop, not_pay, profile, ref)
+    markup.add(shop, not_pay, profile, ref, info, help)
     if str(message.chat.id) == str(creator_chat_id):
         admin1 = types.KeyboardButton('⚙️ Настройка магазина')
         markup.add(admin1)
     bot.send_message(message.chat.id, 'Привет! Добро пожаловать в онлайн магазин', reply_markup=markup)
 
 
+@bot.message_handler(content_types=['text'], func=lambda m: m.text == 'Информация')
+def info(message):
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    bot.send_message(message.chat.id, 'Инфо', reply_markup=markup)
+
+
 @bot.message_handler(content_types=['text'], func=lambda m: m.text == '💸 Реферальная система')
 def ref_system(message):
-    ch = 0
-    all_users = db.get_all_users()
-    for user in all_users:
-        if user[4] == message.chat.id:
-            ch += 1
+    ch = db.get_user(message.chat.id)[3]
     markup = types.InlineKeyboardMarkup()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
     link = f't.me/{bot.user.username}?start={message.chat.id}'
-    bot.send_message(message.chat.id, f'У нас в магазине действует реферальная система. Если ты пригласишь друга, то он получит десять бонусных рублей. А если он что-то купит у нас, то ты получишь 50 бонусных рублей, которые сможешь потратить на наши товары.\nЭто твоя персональная ссылка: {link}\nСейчас по ней зарегестрировалось вот столько пользователей: {ch}', reply_markup=markup)
+    bot.send_message(message.chat.id, f'У нас в магазине действует реферальная система. За каждого пользователя, который перешёл по твоей ссылке и зарегестрировался тебе будут начисляться баллы, а потом ты сможешь из тратить на покупку курсов.\nЭто твоя персональная ссылка: {link}\nСейчас у тебя вот столько наших баллов: {ch}', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: m.text == '❗️Акция❗️')
+@bot.message_handler(content_types=['text'], func=lambda m: m.text == 'Помощь')
+def help(message):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('Перейти', url='https://t.me/Ivan_Slezkin'))
+    markup.row()
+    markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
+    bot.send_message(message.chat.id, 'По любым вопросам пишите ⬇️', reply_markup=markup)
+
+
+@bot.message_handler(content_types=['text'], func=lambda m: m.text == '❗️Получить доступ ко всему❗️')
 def not_pay(message):
     markup = types.InlineKeyboardMarkup()
     ok = types.InlineKeyboardButton('💳 Купить за 1499 руб', callback_data='sale')
+    promocode = types.InlineKeyboardButton('Ввести промокод', callback_data='enter_promo')
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
-    markup.add(ok, close)
+    markup.add(ok)
+    markup.row()
+    markup.add(promocode)
+    markup.add(close)
     bot.send_message(message.chat.id, 'Внимание❗️ Вы можете получить все товары за 1499 руб❗️ Скорее покупайте и наслаждайтесь', reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda m:m.data == 'sale')
+@bot.callback_query_handler(func=lambda m: m.data == 'enter_promo')
+def enter_promo(message):
+    global promocodes_users
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    promocodes_users.append(message.message.chat.id)
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_enter')
+    markup.add(close)
+    bot.send_message(message.message.chat.id, 'Введите промокод:')
+
+
+@bot.message_handler(content_types=['text'], func=lambda m: m.chat.id in promocodes_users)
+def check_promo(message):
+    promocode = db.get_promocode(message.text)
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_enter')
+    markup.add(close)
+    if promocode is None:
+        bot.send_message(message.chat.id, 'Неверный промокод! Попробуйте ещё раз', reply_markup=markup)
+        return
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='cancel_enter')
+    markup.add(close)
+    bot.send_message(message.chat.id, f'Поздравляю! Для тебя скидка! Все товары за {promocode[2]} руб, вместо 1499 руб.', reply_markup=markup)
+    promocodes_users.remove(message.chat.id)
+    prices = []
+    user = db.get_user(message.chat.id)
+    users_buy = user[2].split('; ')
+    if '' in users_buy:
+        users_buy.remove('')
+    all_results = db.get_info()
+    for product in all_results:
+        if str(product[0]) not in users_buy:
+            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
+            prices.append(price)
+    if prices:
+        keyboard = types.InlineKeyboardMarkup()
+        keyboard.add(types.InlineKeyboardButton(f"Заплатить", pay=True))
+        keyboard.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
+        prices = [types.LabeledPrice(label=f'Доступ ко всем товарам', amount=int(promocode[2]) * 100)]
+        bot.send_invoice(
+            message.chat.id,
+            'Доступ',
+            f'Доступ ко всем товарам', is_flexible=False, prices=prices, provider_token=payment_token, currency="rub", invoice_payload='sale', reply_markup=keyboard, )
+    else:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
+        bot.send_message(message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: https://disk.yandex.ru/d/fJttnVQnkrmpMA', reply_markup=markup)
+    bot.answer_callback_query(message.id)
+
+
+@bot.callback_query_handler(func=lambda m: m.data == 'cancel_enter')
+def cancel_enter(message):
+    global promocodes_users
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    promocodes_users.remove(message.message.chat.id)
+    markup = types.InlineKeyboardMarkup()
+    ok = types.InlineKeyboardButton('💳 Купить за 1499 руб', callback_data='sale')
+    promocode = types.InlineKeyboardButton('Ввести промокод', callback_data='enter_promo')
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(ok)
+    markup.row()
+    markup.add(promocode)
+    markup.add(close)
+    bot.send_message(message.message.chat.id, 'Внимание❗️ Вы можете получить все товары за 1499 руб❗️ Скорее покупайте и наслаждайтесь', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda m: m.data == 'sale')
 def sale(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     prices = []
@@ -355,7 +517,7 @@ def sale(message):
     all_results = db.get_info()
     for product in all_results:
         if str(product[0]) not in users_buy:
-            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[4]) * 100)
+            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
             prices.append(price)
     if prices:
         keyboard = types.InlineKeyboardMarkup()
@@ -408,7 +570,7 @@ def profile(message):
         users_buy.remove('')
     for product_name in users_buy:
         product = db.get_info_about_product(product_name)
-        count += product[4]
+        count += product[5]
         count_products += 1
     if not name:
         name = 'Не указано'
@@ -440,7 +602,7 @@ def add_t(message):
     markup.add(close)
     all_results = db.get_info()
     products = [i[0] for i in all_results]
-    db.update_user('; '.join(products), message.data.replace('ok_', ''))
+    db.update_user_buy('; '.join(products), message.data.replace('ok_', ''))
     bot.send_message(message.message.chat.id, f'Пользователю с ID {message.data.replace("ok_", "")} выдано {len(products)} шт товаров!', reply_markup=markup)
     bot.answer_callback_query(message.id)
     bot.send_message(message.data.replace('ok_', ''), '❗️Вам выдали доступ ко всем курсам! Поздравляем!❗️', reply_markup=markup)
@@ -516,7 +678,7 @@ def inlin_sections(message):
 #     links = []
 #     for product in all_results:
 #         if str(product[0]) not in users_buy:
-#             price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[4]) * 100)
+#             price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
 #             prices.append(price)
 #         links.append(f'Название: {product[0]}\nОписание: {product[1]}\nЦена: {product[3]} руб.\nСсылка на курс "{product[0]}": {product[2]}\n\n')
 #     links = "\n".join(links)
@@ -543,14 +705,57 @@ def inlin_product(message):
     buy_products = db.get_user(message.message.chat.id)[2].split('; ')
     if str(product[0]) not in buy_products:
         buy = types.InlineKeyboardButton("Купить 💳", callback_data=f"{product[0]}_buy")
+        get_free = types.InlineKeyboardButton('Получить бесплатно', callback_data=f'free_{product[0]}')
+        button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
+        markup.add(buy, get_free, button1)
     else:
         buy = types.InlineKeyboardButton("Отправить ссылку", callback_data=f"{product[0]}_buy")
-    button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
-    markup.add(buy, button1)
+        button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
+        markup.add(buy, button1)
     bot.delete_message(message.message.chat.id, message.message.message_id)
     bot.send_photo(message.message.chat.id, image, f"Название: {product[1]}\nОписание: {product[2]}\nЦена: ~{product[4]} руб~    *{product[5]} руб*", reply_markup=markup, parse_mode='MarkdownV2')
     bot.answer_callback_query(message.id)
 
+
+@bot.callback_query_handler(func=lambda c: 'free_' in c.data)
+def get_product_free(message):
+    markup = types.InlineKeyboardMarkup()
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    product = db.get_info_about_product(message.data.replace('free_', ''))
+    people_price = product[5] // 50
+    ch = db.get_user(message.message.chat.id)[3]
+    if ch >= people_price:
+        markup.add(types.InlineKeyboardButton('Потратить', callback_data=f'get_{message.data.replace("free_", "")}'))
+        markup.add(types.InlineKeyboardButton('🔙 К товару', callback_data=f'product_{message.data.replace("free_", "")}'))
+        bot.send_message(message.message.chat.id, f'Можно полностью оплатить товар нашими баллами.\nТовар стоит {people_price} балла(ов), а у тебя {ch} балла(ов). Покупаешь?', reply_markup=markup)
+        return
+    else:
+        markup.add(types.InlineKeyboardButton('🔙 К товару', callback_data=f'product_{message.data.replace("free_", "")}'))
+        bot.send_message(message.message.chat.id, f'Можно полностью оплатить товар нашими баллами.\nовар стоит {people_price} балла(ов), а у тебя {ch} балла(ов). Пока ты не можешь это купить. Зайди в раздел реферальной системы, скопируй персональную ссылку и пригласи пару друзей. Подробнее во вкладке реферальной системы:)', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: 'get_' in c.data)
+def buy_product_free(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    product = db.get_info_about_product(message.data.replace('get_', ''))
+    markup = types.InlineKeyboardMarkup()
+    section = types.InlineKeyboardButton('Обратно к категории 🔙', callback_data=f'category_{str(product[6])}')
+    home = types.InlineKeyboardButton("На главный экран 🏠", callback_data="close")
+    links = []
+    markup.add(section, home)
+    user = db.get_user(message.message.chat.id)
+    buy_products = user[2].split('; ')
+    if '' in buy_products:
+        buy_products.remove('')
+    if not buy_products and user[4] != -1:
+        ref = db.get_user(user[4])
+        db.update_user_money(user[4], ref[3] + 1)
+    buy_products.append(str(product[0]))
+    db.update_user_buy('; '.join(buy_products), message.message.chat.id)
+    db.update_user_money(message.message.chat.id, user[3] - (product[5] // 50))
+    links.append(f'Название: {product[1]}\nОписание: {product[2]}\nЦена: {product[5]} руб.\nСсылка на курс "{product[1]}": {product[3]}\n\n')
+    links = "\n".join(links)
+    bot.send_message(message.message.chat.id, f'Спасибо за покупку! У тебя осталось вот столько балов: {user[3] - (product[5] // 50)}\n{links}', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c:True)
 def inlin(message):
@@ -590,7 +795,7 @@ def inlin(message):
         product = db.get_info_about_product(message.data.replace('_buy', ''))
         buy_products = db.get_user(message.message.chat.id)[2].split('; ')
         if data not in buy_products:
-            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[4]) * 100)
+            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
             bot.delete_message(message.message.chat.id, message.message.message_id)
             keyboard = types.InlineKeyboardMarkup()
             keyboard.add(types.InlineKeyboardButton(f"💲Заплатить", pay=True))
@@ -601,7 +806,7 @@ def inlin(message):
                 f'Доступ к курсу "{product[1]}"', is_flexible=False, prices=[price], provider_token=payment_token, currency="rub", invoice_payload=product[0], reply_markup=keyboard)
         else:
             markup = types.InlineKeyboardMarkup()
-            section = types.InlineKeyboardButton('Обратно к категории 🔙', callback_data=f'category_{product[4]}')
+            section = types.InlineKeyboardButton('Обратно к категории 🔙', callback_data=f'category_{product[6]}')
             home = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
             markup.add(section, home)
             bot.delete_message(message.message.chat.id, message.message.message_id)
@@ -618,20 +823,22 @@ def good(message):
 def good(message):
     if message.successful_payment.invoice_payload != 'sale':
         bot.delete_message(message.chat.id, message.message_id)
-        product = db.get_info_about_product(message.successful_payment.invoice_payload.split('; ')[0])
+        product = db.get_info_about_product(message.successful_payment.invoice_payload)
         markup = types.InlineKeyboardMarkup()
-        section = types.InlineKeyboardButton('Обратно к категории 🔙', callback_data=f'category_{str(product[5])}')
+        section = types.InlineKeyboardButton('Обратно к категории 🔙', callback_data=f'category_{str(product[6])}')
         home = types.InlineKeyboardButton("На главный экран 🏠", callback_data="close")
         links = []
         markup.add(section, home)
-        for i in message.successful_payment.invoice_payload.split('; '):
-            product = db.get_info_about_product(i)
-            buy_products = db.get_user(message.chat.id)[2].split('; ')
-            buy_products.append(str(product[0]))
-            if '' in buy_products:
-                buy_products.remove('')
-            db.update_user('; '.join(buy_products), message.chat.id)
-            links.append(f'Название: {product[1]}\nОписание: {product[2]}\nЦена: {product[4]} руб.\nСсылка на курс "{product[1]}": {product[3]}\n\n')
+        user = db.get_user(message.chat.id)
+        buy_products = user[2].split('; ')
+        if '' in buy_products:
+            buy_products.remove('')
+        if not buy_products and user[4] != -1:
+            ref = db.get_user(user[4])
+            db.update_user_money(user[4], ref[3] + 1)
+        buy_products.append(str(product[0]))
+        db.update_user_buy('; '.join(buy_products), message.chat.id)
+        links.append(f'Название: {product[1]}\nОписание: {product[2]}\nЦена: {product[5]} руб.\nСсылка на курс "{product[1]}": {product[3]}\n\n')
         links = "\n".join(links)
         bot.send_message(message.chat.id, f'Спасибо за покупку!\n{links}', reply_markup=markup)
     else:
@@ -640,12 +847,16 @@ def good(message):
         home = types.InlineKeyboardButton("🚫 Закрыть", callback_data="close")
         links = []
         for product in db.get_info():
-            buy_products = db.get_user(message.chat.id)[2].split('; ')
+            user = db.get_user(message.chat.id)
+            buy_products = user[2].split('; ')
             if str(product[0]) not in buy_products:
                 buy_products.append(str(product[0]))
             if '' in buy_products:
                 buy_products.remove('')
-            db.update_user('; '.join(buy_products), message.chat.id)
+            if not buy_products and user[4] != -1:
+                ref = db.get_user(user[4])
+                db.update_user_money(user[4], ref[3] + 1)
+            db.update_user_buy('; '.join(buy_products), message.chat.id)
         markup.add(home)
         bot.send_message(message.chat.id, 'Спасибо за покупку всех товаров!\nСсылка: https://disk.yandex.ru/d/fJttnVQnkrmpMA', reply_markup=markup)
 
