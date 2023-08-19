@@ -155,3 +155,5 @@ cython_debug/
 data.db
 data.db
 .DS_Store
+data.db
+images/Бот.jpg
