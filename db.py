@@ -37,27 +37,18 @@ class SQL():
         """
         )
         conn.commit()
-        # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", (1, 'Таблетка', 'Супер', 'https://yandex.ru', 199, 1, 'images/tabletka.jpg'))
-        # conn.commit()
-        # cur.execute("INSERT INTO products VALUES(?, ?, ?, ?, ?, ?, ?);", (2, 'Бот', 'Супер', 'https://google.com', 500, 1, 'images/Бот.jpg'))
-        # conn.commit()
-        # cur.execute("INSERT INTO sections VALUES(?, ?);", ('Продукты', 1))
-        # conn.commit()
-        # cur.execute("INSERT INTO users VALUES(?, ?, ?);", (1509726530, 'Ivan_Slezkin', ''))
-        # conn.commit()
         conn.close()
     
-
-    def get_info(self):
+    # Products
+    def get_all_products(self):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
         cur.execute("SELECT * FROM products;")
         all_results = cur.fetchall()
         conn.close()
-        # print(all_results)
         return all_results
 
-    def get_products_section(self, name):
+    def get_products_by_section(self, name):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
         cur.execute(f"SELECT * FROM products where section={name};")
@@ -65,14 +56,14 @@ class SQL():
         conn.close()
         return all_results
     
-    def get_info_about_product(self, id):
+    def get_product(self, id):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
         cur.execute(f"select * from products where id='{id}'")
         product = cur.fetchone()
         return product
 
-    def add_product(self, product):
+    def create_product(self, product):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
         cur.execute("SELECT * FROM products")
@@ -92,6 +83,7 @@ class SQL():
         conn.commit()
         conn.close()
 
+    # Sections
     def get_all_sections(self):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
@@ -122,7 +114,8 @@ class SQL():
         cur.execute(f"DELETE from sections where id = '{id}'")
         conn.commit()
         conn.close()
-
+    
+    # Users
     def get_all_users(self):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
@@ -166,6 +159,7 @@ class SQL():
         conn.commit()
         conn.close()
     
+    # Promocodes
     def get_promocode(self, title):
         conn = sqlite3.connect('data.db')
         cur = conn.cursor()
