@@ -21,7 +21,7 @@ promocodes_users = []
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and m.text == '⚙️ Настройка магазина')
-def admin_func(message):
+def settings(message):
     global admin
     admin = True
     markup = types.InlineKeyboardMarkup()
@@ -37,7 +37,7 @@ def admin_func(message):
 
 
 @bot.callback_query_handler(func=lambda c: c.data == 'promo')
-def set_promo(message):
+def promo_settings(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     markup = types.InlineKeyboardMarkup()
     promocodes = db.get_all_promocodes()
@@ -51,7 +51,7 @@ def set_promo(message):
 
 
 @bot.callback_query_handler(func=lambda c: 'del_promo_' in c.data)
-def del_promo(message):
+def delete_promo(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     id_promo = int(message.data.replace('del_promo_', ''))
     promo_title = db.delete_promo(id_promo)
@@ -73,7 +73,7 @@ def create_promo(message):
     
 
 @bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'title' in next_added)
-def new_price(message):
+def promo_price(message):
     global info_created_promo, next_added
     info_created_promo.append(message.text)
     next_added = 'price'
@@ -94,7 +94,7 @@ def yes_create_promo(message):
 
 
 @bot.callback_query_handler(func=lambda c: c.data == 'sections')
-def set_cat(message):
+def all_category_settings(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     global admin
     admin = True
@@ -111,7 +111,7 @@ def set_cat(message):
 
 
 @bot.callback_query_handler(func=lambda c: 'set-adm_' in c.data)
-def settings_section(message):
+def section_settings(message):
     global selected_adm_section
     bot.delete_message(message.message.chat.id, message.message.message_id)
     all_results = db.get_products_by_section(int(message.data.replace("set-adm_", "")))
@@ -408,7 +408,7 @@ def info(message):
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: m.text == '💸 Реферальная система')
-def ref_system(message):
+def referal_system(message):
     ch = db.get_user(message.chat.id)[3]
     markup = types.InlineKeyboardMarkup()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
@@ -427,7 +427,7 @@ def help(message):
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: m.text == '❗️Получить доступ ко всему❗️')
-def not_pay(message):
+def get_all(message):
     markup = types.InlineKeyboardMarkup()
     ok = types.InlineKeyboardButton('💳 Купить за 1499 руб', callback_data='sale')
     promocode = types.InlineKeyboardButton('Ввести промокод', callback_data='enter_promo')
@@ -494,7 +494,7 @@ def check_promo(message):
 
 
 @bot.callback_query_handler(func=lambda m: m.data == 'cancel_enter')
-def cancel_enter(message):
+def cancel_enter_зкщьщ(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     try:
         promocodes_users.remove(message.message.chat.id)
@@ -512,7 +512,7 @@ def cancel_enter(message):
 
 
 @bot.callback_query_handler(func=lambda m: m.data == 'sale')
-def sale(message):
+def get_all_send_invoice(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     prices = []
     user = db.get_user(message.message.chat.id)
@@ -583,44 +583,44 @@ def profile(message):
     bot.send_message(message.chat.id, text, reply_markup=markup)
     
 
-@bot.message_handler(commands=['add'], func=lambda c: str(c.chat.id) == str(creator_chat_id))
-def add(message):
-    text = message.text.split()
-    if not text[1]:
-        bot.send_message(message.chat.id, 'Проверьте, указали ли Вы ID человека!')
-        return
-    user = db.get_user(int(text[1]))
-    if not user:
-        bot.send_message(message.chat.id, 'Пользователь с таким ID в базе данных не найден!')
-    markup = types.InlineKeyboardMarkup()
-    yes = types.InlineKeyboardButton('✅', callback_data=f'ok_{text[1]}')
-    no = types.InlineKeyboardButton('❌', callback_data=f'not_{text[1]}')
-    markup.add(yes, no)
-    bot.send_message(message.chat.id, f'Вы уверены, что хотите выдать пользователю с ID {text[1]} все товары?', reply_markup=markup)
+# @bot.message_handler(commands=['add'], func=lambda c: str(c.chat.id) == str(creator_chat_id))
+# def add(message):
+#     text = message.text.split()
+#     if not text[1]:
+#         bot.send_message(message.chat.id, 'Проверьте, указали ли Вы ID человека!')
+#         return
+#     user = db.get_user(int(text[1]))
+#     if not user:
+#         bot.send_message(message.chat.id, 'Пользователь с таким ID в базе данных не найден!')
+#     markup = types.InlineKeyboardMarkup()
+#     yes = types.InlineKeyboardButton('✅', callback_data=f'ok_{text[1]}')
+#     no = types.InlineKeyboardButton('❌', callback_data=f'not_{text[1]}')
+#     markup.add(yes, no)
+#     bot.send_message(message.chat.id, f'Вы уверены, что хотите выдать пользователю с ID {text[1]} все товары?', reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda c: 'ok_' in c.data)
-def add_t(message):
-    bot.delete_message(message.message.chat.id, message.message.message_id)
-    markup = types.InlineKeyboardMarkup()
-    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
-    markup.add(close)
-    all_results = db.get_all_products()
-    products = [i[0] for i in all_results]
-    db.update_user_buy('; '.join(products), message.data.replace('ok_', ''))
-    bot.send_message(message.message.chat.id, f'Пользователю с ID {message.data.replace("ok_", "")} выдано {len(products)} шт товаров!', reply_markup=markup)
-    bot.answer_callback_query(message.id)
-    bot.send_message(message.data.replace('ok_', ''), '❗️Вам выдали доступ ко всем курсам! Поздравляем!❗️', reply_markup=markup)
+# @bot.callback_query_handler(func=lambda c: 'ok_' in c.data)
+# def add_t(message):
+#     bot.delete_message(message.message.chat.id, message.message.message_id)
+#     markup = types.InlineKeyboardMarkup()
+#     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+#     markup.add(close)
+#     all_results = db.get_all_products()
+#     products = [i[0] for i in all_results]
+#     db.update_user_buy('; '.join(products), message.data.replace('ok_', ''))
+#     bot.send_message(message.message.chat.id, f'Пользователю с ID {message.data.replace("ok_", "")} выдано {len(products)} шт товаров!', reply_markup=markup)
+#     bot.answer_callback_query(message.id)
+#     bot.send_message(message.data.replace('ok_', ''), '❗️Вам выдали доступ ко всем курсам! Поздравляем!❗️', reply_markup=markup)
     
 
-@bot.callback_query_handler(func=lambda c: 'not_' in c.data)
-def add_t(message):
-    bot.delete_message(message.message.chat.id, message.message.message_id)
-    markup = types.InlineKeyboardMarkup()
-    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
-    markup.add(close)
-    bot.send_message(message.message.chat.id, f'Операция отменена!', reply_markup=markup)
-    bot.answer_callback_query(message.id)
+# @bot.callback_query_handler(func=lambda c: 'not_' in c.data)
+# def add_t(message):
+#     bot.delete_message(message.message.chat.id, message.message.message_id)
+#     markup = types.InlineKeyboardMarkup()
+#     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+#     markup.add(close)
+#     bot.send_message(message.message.chat.id, f'Операция отменена!', reply_markup=markup)
+#     bot.answer_callback_query(message.id)
 
 
 def check_sections(message):
