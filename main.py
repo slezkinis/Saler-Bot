@@ -4,41 +4,22 @@ import os
 from telebot import types
 from db import SQL
 
-
+# Bot_setiings
 db = SQL()
 load_dotenv()
 bot = telebot.TeleBot(os.environ['TG_TOKEN'])
 creator_chat_id = os.environ['CREATOR_CHAT_ID']
 payment_token = os.environ['PAYMENT_TOKEN']
-add_section_val = False
+
 admin = False
-section = ''
-add_new = ''
-product = []
-promo = []
+is_creating_sections = False
+selected_adm_section = ''
+next_added = ''
+info_created_product = []
+info_created_promo = []
 promocodes_users = []
 
 
-@bot.callback_query_handler(func=lambda c: 'set-adm_' in c.data)
-def settings_section(message):
-    global section
-    bot.delete_message(message.message.chat.id, message.message.message_id)
-    all_results = db.get_products_by_section(int(message.data.replace("set-adm_", "")))
-    
-    markup = types.InlineKeyboardMarkup()
-    delete = types.InlineKeyboardButton('🗑️ Удалить эту категорию', callback_data=f'delete_category_{message.data.replace("set-adm_", "")}')
-    add = types.InlineKeyboardButton('➕ Добавить товар в эту категорию', callback_data=f'add_product_in_{message.data.replace("set-adm_", "")}')
-    markup.add(delete, add)
-    for product in all_results:
-        button1 = types.InlineKeyboardButton(product[1], callback_data=f'product_set_{product[0]}')
-        markup.add(button1)
-    go_home = types.InlineKeyboardButton('⚙️ Вернуться к редактированию', callback_data='cancel_section')
-    markup.add(go_home)
-    section = db.get_section(message.data.replace('set-adm_', ''))
-    bot.send_message(message.message.chat.id, f'Это раздел для редактирования категории "{section[0]}"', reply_markup=markup)
-    bot.answer_callback_query(message.id)
-
-    
 @bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and m.text == '⚙️ Настройка магазина')
 def admin_func(message):
     global admin
@@ -82,34 +63,34 @@ def del_promo(message):
 
 @bot.callback_query_handler(func=lambda c: c.data == 'new_promo')
 def create_promo(message):
-    global promo, add_new
+    global info_created_promo, next_added
     bot.delete_message(message.message.chat.id, message.message.message_id)
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_product'))
-    promo = []
-    add_new = 'title'
+    info_created_promo = []
+    next_added = 'title'
     bot.send_message(message.message.chat.id, 'Введите промокод:', reply_markup=markup)
     
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'title' in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'title' in next_added)
 def new_price(message):
-    global promo, add_new
-    promo.append(message.text)
-    add_new = 'price'
+    global info_created_promo, next_added
+    info_created_promo.append(message.text)
+    next_added = 'price'
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_product'))
     bot.send_message(message.chat.id, 'Введите цену', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'price' in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'price' in next_added)
 def yes_create_promo(message):
-    global promo, add_new
-    promo.append(int(message.text))
-    add_new = ''
-    db.create_promocode(promo[0], promo[1])
+    global info_created_promo, next_added
+    info_created_promo.append(int(message.text))
+    next_added = ''
+    db.create_promocode(info_created_promo[0], info_created_promo[1])
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='cancel_product'))
-    bot.send_message(message.chat.id, f'Создан промокод {promo[0]}', reply_markup=markup)
+    bot.send_message(message.chat.id, f'Создан промокод {info_created_promo[0]}', reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda c: c.data == 'sections')
@@ -129,11 +110,30 @@ def set_cat(message):
     bot.send_message(message.message.chat.id, 'Вот все категории:', reply_markup=markup)
 
 
+@bot.callback_query_handler(func=lambda c: 'set-adm_' in c.data)
+def settings_section(message):
+    global selected_adm_section
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    all_results = db.get_products_by_section(int(message.data.replace("set-adm_", "")))
+    markup = types.InlineKeyboardMarkup()
+    delete = types.InlineKeyboardButton('🗑️ Удалить эту категорию', callback_data=f'delete_category_{message.data.replace("set-adm_", "")}')
+    add = types.InlineKeyboardButton('➕ Добавить товар в эту категорию', callback_data=f'add_product_in_{message.data.replace("set-adm_", "")}')
+    markup.add(delete, add)
+    for product in all_results:
+        button1 = types.InlineKeyboardButton(product[1], callback_data=f'product_set_{product[0]}')
+        markup.add(button1)
+    go_home = types.InlineKeyboardButton('⚙️ Вернуться к редактированию', callback_data='cancel_section')
+    markup.add(go_home)
+    selected_adm_section = db.get_section(message.data.replace('set-adm_', ''))
+    bot.send_message(message.message.chat.id, f'Это раздел для редактирования категории "{selected_adm_section[0]}"', reply_markup=markup)
+    bot.answer_callback_query(message.id)
+
+
 @bot.callback_query_handler(func=lambda c: c.data == 'new_section')
 def add_section(message):
-    global add_section_val
+    global is_creating_sections
     bot.delete_message(message.message.chat.id, message.message.message_id)
-    add_section_val = True
+    is_creating_sections = True
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_section')
     markup.add(cancel)
@@ -199,9 +199,9 @@ def delete_category(message):
 
 @bot.callback_query_handler(func=lambda c: 'cancel_product' in c.data)
 def cancel_product(message):
-    global add_new, product, promo
-    add_new = ''
-    product = []
+    global next_added, info_created_product, promo
+    next_added = ''
+    info_created_product = []
     promo = []
     bot.delete_message(message.message.chat.id, message.message.message_id)
     global admin
@@ -220,79 +220,79 @@ def cancel_product(message):
 
 @bot.callback_query_handler(func=lambda c: 'add_product_in_' in c.data)
 def add_new_product(message):
-    global add_new, product
+    global next_added
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_product')
     markup.add(cancel)
     bot.delete_message(message.message.chat.id, message.message.message_id)
-    add_new = f'Название_{message.data.replace("add_product_in_", "")}'
+    next_added = f'Название_{message.data.replace("add_product_in_", "")}'
     bot.send_message(message.message.chat.id, 'Напишите название товара', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and "Название_" in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and "Название_" in next_added)
 def name(message):
-    global add_new, product
+    global next_added, info_created_product
     # bot.delete_message(message.chat.id, message.message_id)
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_product')
     markup.add(cancel)
-    add_new = f'Описание_{add_new.replace("Название_", "")}'
-    product.append(message.text)
+    next_added = f'Описание_{next_added.replace("Название_", "")}'
+    info_created_product.append(message.text)
     bot.send_message(message.chat.id, 'Напишите описание товара', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Описание_' in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Описание_' in next_added)
 def description(message):
-    global add_new, product
-    add_new = f'Ссылка_{add_new.replace("Описание_", "")}'
+    global next_added, info_created_product
+    next_added = f'Ссылка_{next_added.replace("Описание_", "")}'
     # bot.delete_message(message.chat.id, message.message_id)
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_product')
     markup.add(cancel)
-    product.append(message.text)
+    info_created_product.append(message.text)
     bot.send_message(message.chat.id, 'Напишите ссылку на курс', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Ссылка_' in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Ссылка_' in next_added)
 def link(message):
-    global add_new, product
-    add_new = f'C_Цена_{add_new.replace("Ссылка_", "")}'
+    global next_added, info_created_product
+    next_added = f'C_Цена_{next_added.replace("Ссылка_", "")}'
     # bot.delete_message(message.chat.id, message.message_id)
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_product')
     markup.add(cancel)
-    product.append(message.text)
+    info_created_product.append(message.text)
     bot.send_message(message.chat.id, 'Напишите старую цену на курс (в рублях)', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'C_Цена_' in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'C_Цена_' in next_added)
 def old_price(message):
-    global add_new, product
-    add_new = f'Н_Цена_{add_new.replace("C_Цена_", "")}'
+    global next_added, info_created_product
+    next_added = f'Н_Цена_{next_added.replace("C_Цена_", "")}'
     # bot.delete_message(message.chat.id, message.message_id)
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_product')
     markup.add(cancel)
-    product.append(message.text)
+    info_created_product.append(message.text)
     bot.send_message(message.chat.id, 'Напишите новую цену на курс (в рублях)', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Н_Цена_' in add_new)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Н_Цена_' in next_added)
 def new_price(message):
-    global add_new, product
+    global next_added, info_created_product
     # bot.delete_message(message.chat.id, message.message_id)
-    add_new = f'Image_{add_new.replace("Н_Цена_", "")}'
+    next_added = f'Image_{next_added.replace("Н_Цена_", "")}'
     markup = types.InlineKeyboardMarkup()
     cancel = types.InlineKeyboardButton('🚫 Отмена', callback_data='cancel_product')
     markup.add(cancel)
-    product.append(int(message.text))
-    product.append(add_new.replace('Image_', ''))
+    info_created_product.append(int(message.text))
+    info_created_product.append(next_added.replace('Image_', ''))
     bot.send_message(message.chat.id, 'Отправьте картинку для курса', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['photo'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Image_' in add_new)
+@bot.message_handler(content_types=['photo'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'Image_' in next_added)
 def image(message):
-    global add_new, product
+    global next_added, info_created_product
     markup = types.InlineKeyboardMarkup()
     # bot.delete_message(message.chat.id, message.message_id)
     yes = types.InlineKeyboardButton('✅', callback_data=f'add')
@@ -300,30 +300,30 @@ def image(message):
     markup.add(yes, no)
     file_info = bot.get_file(message.photo[len(message.photo) - 1].file_id)
     downloaded_file = bot.download_file(file_info.file_path)
-    src = f'./images/{product[0]}.jpg'
-    product.append(src)
+    src = f'./images/{info_created_product[0]}.jpg'
+    info_created_product.append(src)
     with open(src, 'wb') as new_file:
         new_file.write(downloaded_file)
-    add_new = 'Ок'
-    bot.send_message(message.chat.id, f'Название: {product[0]}\nОписание: {product[1]}\nСсылка: {product[2]}\nСтарая цена: {product[3]} руб.\nНовая цена: {product[4]} руб.', reply_markup=markup)
+    next_added = 'Ок'
+    bot.send_message(message.chat.id, f'Название: {info_created_product[0]}\nОписание: {info_created_product[1]}\nСсылка: {info_created_product[2]}\nСтарая цена: {info_created_product[3]} руб.\nНовая цена: {info_created_product[4]} руб.', reply_markup=markup)
 
 
-@bot.callback_query_handler(func=lambda c: 'Ок' in add_new)
+@bot.callback_query_handler(func=lambda c: 'Ок' in next_added)
 def ok(message):
-    global add_new, product, admin
-    add_new = ''
+    global next_added, info_created_product, admin
+    next_added = ''
     bot.delete_message(message.message.chat.id, message.message.message_id)
     admin = False
     markup = types.InlineKeyboardMarkup()
     go_home = types.InlineKeyboardButton('⚙️ Вернуться к редактированию', callback_data='cancel_section')
     markup.add(go_home)
     if message.data == 'add':
-        db.create_product(product)
+        db.create_product(info_created_product)
         bot.send_message(message.message.chat.id, 'Товар добавлен!', reply_markup=markup)
-        product = []
+        info_created_product = []
     else:
         bot.send_message(message.message.chat.id, 'Товар не добавлен!', reply_markup=markup)
-        product = []
+        info_created_product = []
     bot.answer_callback_query(message.id)
 
 
@@ -360,12 +360,12 @@ def delete_category(message):
     bot.answer_callback_query(message.id)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and add_section_val)
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and is_creating_sections)
 def correct_section(message):
     db.create_section(message.text)
     markup = types.InlineKeyboardMarkup()
-    global add_section_val
-    add_section_val = False
+    global is_creating_sections
+    is_creating_sections = False
     go_home = types.InlineKeyboardButton('⚙️ Вернуться к редактированию', callback_data='cancel_section')
     markup.add(go_home)
     bot.send_message(message.chat.id, f'Создана новая категория с именем {message.text}!', reply_markup=markup)
@@ -780,8 +780,8 @@ def inlin(message):
         bot.send_message(message.message.chat.id, 'Вот список категорий', reply_markup=markup)
         bot.answer_callback_query(message.id)
     if message.data == 'cancel_section':
-        global add_section_val
-        add_section_val = False
+        global is_creating_sections
+        is_creating_sections = False
         bot.delete_message(message.message.chat.id, message.message.message_id)
         global admin
         admin = True
