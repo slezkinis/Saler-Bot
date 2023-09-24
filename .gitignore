@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 /images
 data.db
+link.txt
 
 # C extensions
 *.so

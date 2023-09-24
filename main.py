@@ -10,7 +10,8 @@ load_dotenv()
 bot = telebot.TeleBot(os.environ['TG_TOKEN'])
 creator_chat_id = os.environ['CREATOR_CHAT_ID']
 payment_token = os.environ['PAYMENT_TOKEN']
-
+with open('link.txt', 'r') as file:
+    disk_link = file.read()
 admin = False
 is_creating_sections = False
 selected_adm_section = ''
@@ -27,14 +28,51 @@ def settings(message):
     markup = types.InlineKeyboardMarkup()
     promo = types.InlineKeyboardButton('Промокоды', callback_data='promo')
     cat = types.InlineKeyboardButton('Товары', callback_data='sections')
+    link = types.InlineKeyboardButton('Ссылка', callback_data='yandex_link')
     markup.add(promo)
     markup.row()
     markup.add(cat)
+    markup.row()
+    markup.add(link)
     markup.row()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
     bot.send_message(message.chat.id, 'Это настройка магазина!', reply_markup=markup)
 
+
+@bot.callback_query_handler(func=lambda c: c.data == 'yandex_link')
+def yandex_link(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    markup = types.InlineKeyboardMarkup()
+    change_link = types.InlineKeyboardButton('Изменить ссылку', callback_data='change_link')
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(change_link, close)
+    bot.send_message(message.message.chat.id, f'Такая ссылка установлена сейчас: {disk_link}', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'change_link')
+def change_link(message):
+    global next_added
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_product')
+    markup.add(close)
+    next_added = 'yandex_link'
+    bot.send_message(message.message.chat.id, 'Введите ссылку:', reply_markup=markup)
+
+
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'yandex_link' in next_added)
+def promo_price(message):
+    global next_added, disk_link
+    next_added = ''
+    with open('link.txt', 'w') as file:
+        file.write(message.text)
+    disk_link = message.text
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    bot.send_message(message.chat.id, f'Новая ссылка: {disk_link}', reply_markup=markup)
+    
 
 @bot.callback_query_handler(func=lambda c: c.data == 'promo')
 def promo_settings(message):
@@ -209,9 +247,12 @@ def cancel_product(message):
     markup = types.InlineKeyboardMarkup()
     promo = types.InlineKeyboardButton('Промокоды', callback_data='promo')
     cat = types.InlineKeyboardButton('Товары', callback_data='sections')
+    link = types.InlineKeyboardButton('Ссылка', callback_data='yandex_link')
     markup.add(promo)
     markup.row()
     markup.add(cat)
+    markup.row()
+    markup.add(link)
     markup.row()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
@@ -461,7 +502,7 @@ def check_promo(message):
         bot.send_message(message.chat.id, 'Неверный промокод! Попробуйте ещё раз', reply_markup=markup)
         return
     markup = types.InlineKeyboardMarkup()
-    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='cancel_enter')
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
     bot.send_message(message.chat.id, f'Поздравляю! Для тебя скидка! Все товары за {promocode[2]} руб, вместо 1499 руб.', reply_markup=markup)
     try:
@@ -490,7 +531,7 @@ def check_promo(message):
     else:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
-        bot.send_message(message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: https://disk.yandex.ru/d/fJttnVQnkrmpMA', reply_markup=markup)
+        bot.send_message(message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: {disk_link}', reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda m: m.data == 'cancel_enter')
@@ -536,7 +577,7 @@ def get_all_send_invoice(message):
     else:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
-        bot.send_message(message.message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: https://disk.yandex.ru/d/fJttnVQnkrmpMA', reply_markup=markup)
+        bot.send_message(message.message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: {disk_link}', reply_markup=markup)
     bot.answer_callback_query(message.id)
     
 
@@ -863,6 +904,6 @@ def good(message):
                 db.update_user_money(user[4], ref[3] + 1)
             db.update_user_buy('; '.join(buy_products), message.chat.id)
         markup.add(home)
-        bot.send_message(message.chat.id, 'Спасибо за покупку всех товаров!\nСсылка: https://disk.yandex.ru/d/fJttnVQnkrmpMA', reply_markup=markup)
+        bot.send_message(message.chat.id, f'Спасибо за покупку всех товаров!\nСсылка: {disk_link}', reply_markup=markup)
 
 bot.infinity_polling(skip_pending = True)
