@@ -429,8 +429,8 @@ def start(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     shop = types.KeyboardButton('🛒 Товары')
     not_pay = types.KeyboardButton('❗️Получить доступ ко всему❗️')
-    help = types.KeyboardButton('Помощь')
-    info = types.KeyboardButton('Информация')
+    help = types.KeyboardButton('📖 Помощь')
+    info = types.KeyboardButton('ℹ️ Информация')
     profile = types.KeyboardButton('📱 Профиль')
     ref = types.KeyboardButton('💸 Реферальная система')
     markup.add(shop, not_pay, profile, ref, info, help)
@@ -440,12 +440,23 @@ def start(message):
     bot.send_message(message.chat.id, 'Привет! Добро пожаловать в онлайн магазин', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: m.text == 'Информация')
+@bot.message_handler(content_types=['text'], func=lambda m: m.text == 'ℹ️ Информация')
 def info(message):
     markup = types.InlineKeyboardMarkup()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
-    bot.send_message(message.chat.id, 'Инфо', reply_markup=markup)
+    text = '''
+Привет дорогой друг.🎉
+расскажем немного о Нас.
+
+🧰Наша команда покупает дорогостоящие программы, курсы и обучение в разных направлениях через "Совместные покупки"🛍
+
+🎈Мы даём доступ всем заинтересованным за минимальное вознаграждение получить желаемый контент который поможет изменить в лучшую сторону вашу жизнь.
+
+🎁Мы гарантируем что Ваша экономия составит более 90%
+от реальной стоимости выбранного Вами контента.🎊
+'''
+    bot.send_message(message.chat.id, text, reply_markup=markup)
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: m.text == '💸 Реферальная система')
@@ -458,13 +469,13 @@ def referal_system(message):
     bot.send_message(message.chat.id, f'У нас в магазине действует реферальная система. За каждого пользователя, который перешёл по твоей ссылке и зарегестрировался тебе будут начисляться баллы, а потом ты сможешь из тратить на покупку курсов.\nЭто твоя персональная ссылка: {link}\nСейчас у тебя вот столько наших баллов: {ch}', reply_markup=markup)
 
 
-@bot.message_handler(content_types=['text'], func=lambda m: m.text == 'Помощь')
+@bot.message_handler(content_types=['text'], func=lambda m: m.text == '📖 Помощь')
 def help(message):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('Перейти', url='https://t.me/Ivan_Slezkin'))
+    markup.add(types.InlineKeyboardButton('Перейти', url='https://t.me/Mr_Biskvit'))
     markup.row()
     markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
-    bot.send_message(message.chat.id, 'По любым вопросам пишите ⬇️', reply_markup=markup)
+    bot.send_message(message.chat.id, '✍️ По всем возникающим вопросам пишите @Mr_Biskvit', reply_markup=markup)
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: m.text == '❗️Получить доступ ко всему❗️')
@@ -477,7 +488,16 @@ def get_all(message):
     markup.row()
     markup.add(promocode)
     markup.add(close)
-    bot.send_message(message.chat.id, 'Внимание❗️ Вы можете получить все товары за 1499 руб❗️ Скорее покупайте и наслаждайтесь', reply_markup=markup)
+    text = '''
+🔥🔥🔥Максимальная выгода🔥🔥🔥
+
+За 1490 рублей Вам откроется весь каталог в полном объеме.
+Если учесть что цена за 1 товар составляет от 500 до 900 рублей.
+
+✅Ваша выгода неизмерима велика
+поскольку практически ежедневно добавляется новый товар к которому у вас также будет полный доступ.🔐💯
+'''
+    bot.send_message(message.chat.id, text, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda m: m.data == 'enter_promo')
@@ -488,7 +508,7 @@ def enter_promo(message):
     markup = types.InlineKeyboardMarkup()
     close = types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_enter')
     markup.add(close)
-    bot.send_message(message.message.chat.id, 'Введите промокод:')
+    bot.send_message(message.message.chat.id, 'Введите промокод:', reply_markup=markup)
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: m.chat.id in promocodes_users)
