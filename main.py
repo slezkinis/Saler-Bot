@@ -466,7 +466,7 @@ def referal_system(message):
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
     link = f't.me/{bot.user.username}?start={message.chat.id}'
-    bot.send_message(message.chat.id, f'У нас в магазине действует реферальная система. За каждого пользователя, который перешёл по твоей ссылке и зарегестрировался тебе будут начисляться баллы, а потом ты сможешь из тратить на покупку курсов.\nЭто твоя персональная ссылка: {link}\nСейчас у тебя вот столько наших баллов: {ch}', reply_markup=markup)
+    bot.send_message(message.chat.id, f'В нашем онлайн магазине действует акция! Если ты приглашаешь одного пользователя и он покупает любой наш курс, то ты получаешь любой курс на твой выюор совершенно бесплатно! А если ты пригласишь 5-х пользователей и они купят у нас один курс, то ты получишь доступ ко всем курсам навсегда!\nВот твоя реферальная ссылка: {link}\nВот сколько людей перешли по твоей ссылке и купили у нас что-то: {ch}', reply_markup=markup)
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: m.text == '📖 Помощь')
@@ -644,8 +644,10 @@ def profile(message):
     bot.send_message(message.chat.id, text, reply_markup=markup)
     
 
-# @bot.message_handler(commands=['add'], func=lambda c: str(c.chat.id) == str(creator_chat_id))
-# def add(message):
+@bot.message_handler(commands=['add'], func=lambda c: str(c.chat.id) == str(creator_chat_id))
+def add(message):
+    user = db.get_user(message.chat.id)
+    db.update_user_money(message.chat.id, user[3] + 1)
 #     text = message.text.split()
 #     if not text[1]:
 #         bot.send_message(message.chat.id, 'Проверьте, указали ли Вы ID человека!')
@@ -771,9 +773,14 @@ def inlin_product(message):
     buy_products = db.get_user(message.message.chat.id)[2].split('; ')
     if str(product[0]) not in buy_products:
         buy = types.InlineKeyboardButton("Купить 💳", callback_data=f"{product[0]}_buy")
-        get_free = types.InlineKeyboardButton('Получить бесплатно', callback_data=f'free_{product[0]}')
+        ch = db.get_user(message.message.chat.id)[3]
+        if ch:     
+            get_free = types.InlineKeyboardButton('Получить бесплатно', callback_data=f'free_{product[0]}')
         button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
-        markup.add(buy, get_free, button1)
+        if ch:
+            markup.add(buy, get_free, button1)
+        else:
+            markup.add(buy, button1)
     else:
         buy = types.InlineKeyboardButton("Отправить ссылку", callback_data=f"{product[0]}_buy")
         button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
@@ -787,18 +794,14 @@ def inlin_product(message):
 def get_product_free(message):
     markup = types.InlineKeyboardMarkup()
     bot.delete_message(message.message.chat.id, message.message.message_id)
-    product = db.get_product(message.data.replace('free_', ''))
-    people_price = product[5] // 50
+    # product = db.get_product(message.data.replace('free_', ''))
+    # people_price = product[5] // 50
     ch = db.get_user(message.message.chat.id)[3]
-    if ch >= people_price:
+    if ch >= 1:
         markup.add(types.InlineKeyboardButton('Потратить', callback_data=f'get_{message.data.replace("free_", "")}'))
         markup.add(types.InlineKeyboardButton('🔙 К товару', callback_data=f'product_{message.data.replace("free_", "")}'))
-        bot.send_message(message.message.chat.id, f'Можно полностью оплатить товар нашими баллами.\nТовар стоит {people_price} балла(ов), а у тебя {ch} балла(ов). Покупаешь?', reply_markup=markup)
+        bot.send_message(message.message.chat.id, 'Ты можешь получить этот курс бесплатно! Берёшь?', reply_markup=markup)
         return
-    else:
-        markup.add(types.InlineKeyboardButton('🔙 К товару', callback_data=f'product_{message.data.replace("free_", "")}'))
-        bot.send_message(message.message.chat.id, f'Можно полностью оплатить товар нашими баллами.\nовар стоит {people_price} балла(ов), а у тебя {ch} балла(ов). Пока ты не можешь это купить. Зайди в раздел реферальной системы, скопируй персональную ссылку и пригласи пару друзей. Подробнее во вкладке реферальной системы:)', reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda c: 'get_' in c.data)
 def buy_product_free(message):
@@ -818,10 +821,10 @@ def buy_product_free(message):
         db.update_user_money(user[4], ref[3] + 1)
     buy_products.append(str(product[0]))
     db.update_user_buy('; '.join(buy_products), message.message.chat.id)
-    db.update_user_money(message.message.chat.id, user[3] - (product[5] // 50))
+    db.update_user_money(message.message.chat.id, user[3] - 1)
     links.append(f'Название: {product[1]}\nОписание: {product[2]}\nЦена: {product[5]} руб.\nСсылка на курс "{product[1]}": {product[3]}\n\n')
     links = "\n".join(links)
-    bot.send_message(message.message.chat.id, f'Спасибо за покупку! У тебя осталось вот столько балов: {user[3] - (product[5] // 50)}\n{links}', reply_markup=markup)
+    bot.send_message(message.message.chat.id, f'Спасибо за покупку! \n{links}', reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda c:True)
 def inlin(message):
@@ -901,6 +904,20 @@ def good(message):
             buy_products.remove('')
         if not buy_products and user[4] != -1:
             ref = db.get_user(user[4])
+            if ref[3] == 0:
+                bot.send_message(ref[0], f'Поздравляю! Пользователь, перешедший по твоей ссылке только что купил у нас курс! 🎆 Теперь ты можешь получить любой наш курс совершенно бесплатно!')
+            if ref[3] == 4:
+                bot.send_message(ref[0], f'Поздравляю! Ровно 5 пользователей перешли по твоей реферальной ссылке и купили у нас курс 🎆 Ты получаешь доступ ко всем курсам НАВСЕГДА!')
+                user_ref = db.get_user(ref[0])
+                buy_products_ref = user_ref[2].split('; ')
+                for product in db.get_all_products():
+                    if str(product[0]) not in buy_products_ref:
+                        buy_products_ref.append(str(product[0]))
+                    if '' in buy_products_ref:
+                        buy_products_ref.remove('')
+                db.update_user_buy('; '.join(buy_products_ref), ref[0])
+                db.update_user_money(user[4], -1)
+                bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
             db.update_user_money(user[4], ref[3] + 1)
         buy_products.append(str(product[0]))
         db.update_user_buy('; '.join(buy_products), message.chat.id)
@@ -912,17 +929,31 @@ def good(message):
         markup = types.InlineKeyboardMarkup()
         home = types.InlineKeyboardButton("🚫 Закрыть", callback_data="close")
         links = []
+        user = db.get_user(message.chat.id)
+        buy_products = user[2].split('; ')
         for product in db.get_all_products():
-            user = db.get_user(message.chat.id)
-            buy_products = user[2].split('; ')
             if str(product[0]) not in buy_products:
                 buy_products.append(str(product[0]))
             if '' in buy_products:
                 buy_products.remove('')
-            if not buy_products and user[4] != -1:
-                ref = db.get_user(user[4])
-                db.update_user_money(user[4], ref[3] + 1)
-            db.update_user_buy('; '.join(buy_products), message.chat.id)
+        if not buy_products and user[4] != -1:
+            ref = db.get_user(user[4])
+            if ref[3] == 0:
+                bot.send_message(ref[0], f'Поздравляю! Пользователь, перешедший по твоей ссылке только что купил у нас курс! 🎆 Теперь ты можешь получить любой наш курс совершенно бесплатно!')
+            if ref[3] == 4:
+                bot.send_message(ref[0], f'Поздравляю! Ровно 5 пользователей перешли по твоей реферальной ссылке и купили у нас курс 🎆 Ты получаешь доступ ко всем курсам НАВСЕГДА!')
+                user_ref = db.get_user(ref[0])
+                buy_products_ref = user_ref[2].split('; ')
+                for product in db.get_all_products():
+                    if str(product[0]) not in buy_products_ref:
+                        buy_products_ref.append(str(product[0]))
+                    if '' in buy_products_ref:
+                        buy_products_ref.remove('')
+                db.update_user_buy('; '.join(buy_products_ref), ref[0])
+                db.update_user_money(user[4], -1)
+                bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
+            db.update_user_money(user[4], ref[3] + 1)
+        db.update_user_buy('; '.join(buy_products), message.chat.id)
         markup.add(home)
         bot.send_message(message.chat.id, f'Спасибо за покупку всех товаров!\nСсылка: {disk_link}', reply_markup=markup)
 
