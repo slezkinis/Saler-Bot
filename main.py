@@ -524,11 +524,13 @@ def check_promo(message):
     markup = types.InlineKeyboardMarkup()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
+    print(1)
     bot.send_message(message.chat.id, f'Поздравляю! Для тебя скидка! Все товары за {promocode[2]} руб, вместо 1499 руб.', reply_markup=markup)
     try:
         promocodes_users.remove(message.chat.id)
     except:
-        1 == 1
+        _ = 1
+    print(1)
     prices = []
     user = db.get_user(message.chat.id)
     users_buy = user[2].split('; ')
@@ -539,19 +541,46 @@ def check_promo(message):
         if str(product[0]) not in users_buy:
             price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
             prices.append(price)
-    if prices:
-        keyboard = types.InlineKeyboardMarkup()
-        keyboard.add(types.InlineKeyboardButton(f"Заплатить", pay=True))
-        keyboard.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
-        prices = [types.LabeledPrice(label=f'Доступ ко всем товарам', amount=int(promocode[2]) * 100)]
-        bot.send_invoice(
-            message.chat.id,
-            'Доступ',
-            f'Доступ ко всем товарам', is_flexible=False, prices=prices, provider_token=payment_token, currency="rub", invoice_payload='sale', reply_markup=keyboard, )
+    if int(promocode[2]) == 0:
+        buy_products = user[2].split('; ')
+        for product in db.get_all_products():
+            if str(product[0]) not in buy_products:
+                buy_products.append(str(product[0]))
+            if '' in buy_products:
+                buy_products.remove('')
+        if not buy_products and user[4] != -1:
+            ref = db.get_user(user[4])
+            if ref[3] == 0:
+                bot.send_message(ref[0], f'Поздравляю! Пользователь, перешедший по твоей ссылке только что купил у нас курс! 🎆 Теперь ты можешь получить любой наш курс совершенно бесплатно! Пригласи ещё 4-х людей и ты получишь полный доступ ко всем курсам НАВСЕГДА!')
+            if ref[3] == 4:
+                bot.send_message(ref[0], f'Поздравляю! Ровно 5 пользователей перешли по твоей реферальной ссылке и купили у нас курс 🎆 Ты получаешь доступ ко всем курсам НАВСЕГДА!')
+                user_ref = db.get_user(ref[0])
+                buy_products_ref = user_ref[2].split('; ')
+                for product in db.get_all_products():
+                    if str(product[0]) not in buy_products_ref:
+                        buy_products_ref.append(str(product[0]))
+                    if '' in buy_products_ref:
+                        buy_products_ref.remove('')
+                db.update_user_buy('; '.join(buy_products_ref), ref[0])
+                db.update_user_money(user[4], -1)
+                bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
+            db.update_user_money(user[4], ref[3] + 1)
+        db.update_user_buy('; '.join(buy_products), message.chat.id)
+        bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
     else:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
-        bot.send_message(message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: {disk_link}', reply_markup=markup)
+        if prices:
+            keyboard = types.InlineKeyboardMarkup()
+            keyboard.add(types.InlineKeyboardButton(f"Заплатить", pay=True))
+            keyboard.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
+            prices = [types.LabeledPrice(label=f'Доступ ко всем товарам', amount=int(promocode[2]) * 100)]
+            bot.send_invoice(
+                message.chat.id,
+                'Доступ',
+                f'Доступ ко всем товарам', is_flexible=False, prices=prices, provider_token=payment_token, currency="rub", invoice_payload='sale', reply_markup=keyboard, )
+        else:
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
+            bot.send_message(message.chat.id, f'Вы уже купили все товары в этом боте!\nСсылка: {disk_link}', reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda m: m.data == 'cancel_enter')
@@ -766,7 +795,10 @@ def inlin_sections(message):
 
 @bot.callback_query_handler(func=check_products)
 def inlin_product(message):
+    markup2 = types.InlineKeyboardMarkup()
     markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
     product = db.get_product(message.data.replace('product_', ''))
     with open(product[7], 'rb') as file:
         image = file.read()
@@ -778,15 +810,16 @@ def inlin_product(message):
             get_free = types.InlineKeyboardButton('Получить бесплатно', callback_data=f'free_{product[0]}')
         button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
         if ch:
-            markup.add(buy, get_free, button1)
+            markup2.add(buy, get_free, button1)
         else:
-            markup.add(buy, button1)
+            markup2.add(buy, button1)
     else:
         buy = types.InlineKeyboardButton("Отправить ссылку", callback_data=f"{product[0]}_buy")
         button1 = types.InlineKeyboardButton("Назад к категории 🔙", callback_data=f'category_{product[6]}')
-        markup.add(buy, button1)
+        markup2.add(buy, button1)
     bot.delete_message(message.message.chat.id, message.message.message_id)
-    bot.send_photo(message.message.chat.id, image, f"Название: {product[1]}\nОписание: {product[2]}\nЦена: ~{product[4]} руб~    *{product[5]} руб*", reply_markup=markup, parse_mode='MarkdownV2')
+    bot.send_photo(message.message.chat.id, image, reply_markup=markup)
+    bot.send_message(message.message.chat.id, f"Название: {product[1]}\nОписание: {product[2]}\nЦена: <s>{product[4]} руб</s>    <b>{product[5]} руб</b>", parse_mode='html', reply_markup=markup2)
     bot.answer_callback_query(message.id)
 
 
