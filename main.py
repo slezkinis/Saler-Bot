@@ -19,6 +19,7 @@ next_added = ''
 info_created_product = []
 info_created_promo = []
 promocodes_users = []
+text_to_send = ''
 
 
 @bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and m.text == '⚙️ Настройка магазина')
@@ -29,15 +30,66 @@ def settings(message):
     promo = types.InlineKeyboardButton('Промокоды', callback_data='promo')
     cat = types.InlineKeyboardButton('Товары', callback_data='sections')
     link = types.InlineKeyboardButton('Ссылка', callback_data='yandex_link')
+    send_to_all = types.InlineKeyboardButton('Рассылка', callback_data='send_to_all')
     markup.add(promo)
     markup.row()
     markup.add(cat)
     markup.row()
     markup.add(link)
     markup.row()
+    markup.add(send_to_all)
+    markup.row()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
     bot.send_message(message.chat.id, 'Это настройка магазина!', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'send_to_all')
+def send_to_all(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    global next_added
+    next_added = 'send_to_all'
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Отменить', callback_data='cancel_product')
+    markup.add(close)
+    bot.send_message(message.message.chat.id, 'Введите сообщение, которое будет отправлено всем пользователям:', reply_markup=markup)
+
+
+@bot.message_handler(content_types=['text'], func=lambda m: str(m.chat.id) == str(creator_chat_id) and 'send_to_all' in next_added)
+def need_send(message):
+    global next_added, text_to_send
+    text_to_send = message.text
+    markup = types.InlineKeyboardMarkup()
+    yes = types.InlineKeyboardButton('✅', callback_data=f'yes_send_to_all')
+    no = types.InlineKeyboardButton('❌', callback_data=f'no_send_to_all')
+    markup.add(yes, no)
+    next_added = ''
+    bot.send_message(message.chat.id, f'Вы уверены, что хотите отправить Ваше сообщение всем пользователям?', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'yes_send_to_all')
+def yes_send_to_all(message):
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    global text_to_send
+    users = db.get_all_users()
+    for user in users:
+        bot.send_message(int(user[0]), text_to_send)
+    text_to_send = ''
+    bot.send_message(message.message.chat.id, f'Сообщение отправлено {len(users)} пользователям!', reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == 'no_send_to_all')
+def no_send_to_all(message):
+    global text_to_send
+    text_to_send = ''
+    bot.delete_message(message.message.chat.id, message.message.message_id)
+    markup = types.InlineKeyboardMarkup()
+    close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
+    markup.add(close)
+    bot.send_message(message.message.chat.id, f'Отменено!', reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda c: c.data == 'yandex_link')
@@ -248,11 +300,14 @@ def cancel_product(message):
     promo = types.InlineKeyboardButton('Промокоды', callback_data='promo')
     cat = types.InlineKeyboardButton('Товары', callback_data='sections')
     link = types.InlineKeyboardButton('Ссылка', callback_data='yandex_link')
+    send_to_all = types.InlineKeyboardButton('Рассылка', callback_data='send_to_all')
     markup.add(promo)
     markup.row()
     markup.add(cat)
     markup.row()
     markup.add(link)
+    markup.row()
+    markup.add(send_to_all)
     markup.row()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
