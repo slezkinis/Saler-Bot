@@ -579,51 +579,29 @@ def check_promo(message):
     markup = types.InlineKeyboardMarkup()
     close = types.InlineKeyboardButton('🚫 Закрыть', callback_data='close')
     markup.add(close)
-    print(1)
     bot.send_message(message.chat.id, f'Поздравляю! Для тебя скидка! Все товары за {promocode[2]} руб, вместо 1499 руб.', reply_markup=markup)
     try:
         promocodes_users.remove(message.chat.id)
     except:
         _ = 1
-    print(1)
-    prices = []
     user = db.get_user(message.chat.id)
-    users_buy = user[2].split('; ')
-    if '' in users_buy:
-        users_buy.remove('')
-    all_results = db.get_all_products()
-    for product in all_results:
-        if str(product[0]) not in users_buy:
-            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
-            prices.append(price)
+    users_buy = user[2]
     if int(promocode[2]) == 0:
-        buy_products = user[2].split('; ')
-        for product in db.get_all_products():
-            if str(product[0]) not in buy_products:
-                buy_products.append(str(product[0]))
-            if '' in buy_products:
-                buy_products.remove('')
+        buy_products = user[2]
         if not buy_products and user[4] != -1:
             ref = db.get_user(user[4])
             if ref[3] == 0:
                 bot.send_message(ref[0], f'Поздравляю! Пользователь, перешедший по твоей ссылке только что купил у нас курс! 🎆 Теперь ты можешь получить любой наш курс совершенно бесплатно! Пригласи ещё 4-х людей и ты получишь полный доступ ко всем курсам НАВСЕГДА!')
             if ref[3] == 4:
                 bot.send_message(ref[0], f'Поздравляю! Ровно 5 пользователей перешли по твоей реферальной ссылке и купили у нас курс 🎆 Ты получаешь доступ ко всем курсам НАВСЕГДА!')
-                user_ref = db.get_user(ref[0])
-                buy_products_ref = user_ref[2].split('; ')
-                for product in db.get_all_products():
-                    if str(product[0]) not in buy_products_ref:
-                        buy_products_ref.append(str(product[0]))
-                    if '' in buy_products_ref:
-                        buy_products_ref.remove('')
-                db.update_user_buy('; '.join(buy_products_ref), ref[0])
+                db.update_user_buy('all', ref[0])
                 db.update_user_money(user[4], -1)
                 bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
             db.update_user_money(user[4], ref[3] + 1)
-        db.update_user_buy('; '.join(buy_products), message.chat.id)
+        db.update_user_buy('all', message.chat.id)
         bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
     else:
-        if prices:
+        if users_buy != 'all':
             keyboard = types.InlineKeyboardMarkup()
             keyboard.add(types.InlineKeyboardButton(f"Заплатить", pay=True))
             keyboard.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
@@ -661,15 +639,8 @@ def get_all_send_invoice(message):
     bot.delete_message(message.message.chat.id, message.message.message_id)
     prices = []
     user = db.get_user(message.message.chat.id)
-    users_buy = user[2].split('; ')
-    if '' in users_buy:
-        users_buy.remove('')
-    all_results = db.get_all_products()
-    for product in all_results:
-        if str(product[0]) not in users_buy:
-            price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
-            prices.append(price)
-    if prices:
+    users_buy = user[2]
+    if users_buy != 'all':
         keyboard = types.InlineKeyboardMarkup()
         keyboard.add(types.InlineKeyboardButton(f"Заплатить", pay=True))
         keyboard.add(types.InlineKeyboardButton('🚫 Закрыть', callback_data='close'))
@@ -715,17 +686,23 @@ def profile(message):
     name = message.chat.first_name
     count = 0
     count_products = 0
-    users_buy = user[2].split('; ')
-    if '' in users_buy:
-        users_buy.remove('')
-    for product_name in users_buy:
-        product = db.get_product(product_name)
-        count += product[5]
-        count_products += 1
-    if not name:
-        name = 'Не указано'
-    text = f'🙍‍♂ Пользователь: {message.chat.first_name}\n🆔 ID: {message.chat.id}\n------------------\n🛒 Количество покупок: {count_products} шт.\n💰 Общая сумма: {count} руб.'
-    bot.send_message(message.chat.id, text, reply_markup=markup)
+    if user[2] != 'all':
+        users_buy = user[2].split('; ')
+        if '' in users_buy:
+            users_buy.remove('')
+        for product_name in users_buy:
+            product = db.get_product(product_name)
+            count += product[5]
+            count_products += 1
+        if not name:
+            name = 'Не указано'
+        text = f'🙍‍♂ Пользователь: {message.chat.first_name}\n🆔 ID: {message.chat.id}\n------------------\n🛒 Количество покупок: {count_products} шт.\n💰 Общая сумма: {count} руб.'
+        bot.send_message(message.chat.id, text, reply_markup=markup)
+    else:
+        if not name:
+            name = 'Не указано'
+        text = f'🙍‍♂ Пользователь: {message.chat.first_name}\n🆔 ID: {message.chat.id}\n------------------\n🛒 Количество покупок: КУПИЛ ВСЁ!\n💰 Общая сумма: ∞ руб.'
+        bot.send_message(message.chat.id, text, reply_markup=markup)
     
 
 @bot.message_handler(commands=['add'], func=lambda c: str(c.chat.id) == str(creator_chat_id))
@@ -857,8 +834,8 @@ def inlin_product(message):
     product = db.get_product(message.data.replace('product_', ''))
     with open(product[7], 'rb') as file:
         image = file.read()
-    buy_products = db.get_user(message.message.chat.id)[2].split('; ')
-    if str(product[0]) not in buy_products:
+    buy_products = db.get_user(message.message.chat.id)[2]
+    if str(product[0]) not in buy_products.split('; ') and buy_products != 'all':
         buy = types.InlineKeyboardButton("Купить 💳", callback_data=f"{product[0]}_buy")
         ch = db.get_user(message.message.chat.id)[3]
         if ch:     
@@ -951,7 +928,7 @@ def inlin(message):
         data = message.message.json['reply_markup']['inline_keyboard'][0][0]['callback_data'].replace('_buy', '')
         product = db.get_product(message.data.replace('_buy', ''))
         buy_products = db.get_user(message.message.chat.id)[2].split('; ')
-        if data not in buy_products:
+        if data not in buy_products and db.get_user(message.message.chat.id)[2] != 'all':
             price = types.LabeledPrice(label=f'Доступ к курсу "{product[1]}"', amount=int(product[5]) * 100)
             bot.delete_message(message.message.chat.id, message.message.message_id)
             keyboard = types.InlineKeyboardMarkup()
@@ -1018,30 +995,18 @@ def good(message):
         home = types.InlineKeyboardButton("🚫 Закрыть", callback_data="close")
         links = []
         user = db.get_user(message.chat.id)
-        buy_products = user[2].split('; ')
-        for product in db.get_all_products():
-            if str(product[0]) not in buy_products:
-                buy_products.append(str(product[0]))
-            if '' in buy_products:
-                buy_products.remove('')
+        buy_products = user[2]
         if not buy_products and user[4] != -1:
             ref = db.get_user(user[4])
             if ref[3] == 0:
                 bot.send_message(ref[0], f'Поздравляю! Пользователь, перешедший по твоей ссылке только что купил у нас курс! 🎆 Теперь ты можешь получить любой наш курс совершенно бесплатно! Пригласи ещё 4-х людей и ты получишь полный доступ ко всем курсам НАВСЕГДА!')
             if ref[3] == 4:
                 bot.send_message(ref[0], f'Поздравляю! Ровно 5 пользователей перешли по твоей реферальной ссылке и купили у нас курс 🎆 Ты получаешь доступ ко всем курсам НАВСЕГДА!')
-                user_ref = db.get_user(ref[0])
-                buy_products_ref = user_ref[2].split('; ')
-                for product in db.get_all_products():
-                    if str(product[0]) not in buy_products_ref:
-                        buy_products_ref.append(str(product[0]))
-                    if '' in buy_products_ref:
-                        buy_products_ref.remove('')
-                db.update_user_buy('; '.join(buy_products_ref), ref[0])
+                db.update_user_buy('all', ref[0])
                 db.update_user_money(user[4], -1)
                 bot.send_message(message.chat.id, f'Ссылка: {disk_link}', reply_markup=markup)
             db.update_user_money(user[4], ref[3] + 1)
-        db.update_user_buy('; '.join(buy_products), message.chat.id)
+        db.update_user_buy('all', message.chat.id)
         markup.add(home)
         bot.send_message(message.chat.id, f'Спасибо за покупку всех товаров!\nСсылка: {disk_link}', reply_markup=markup)
 
